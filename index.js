@@ -13,8 +13,6 @@ const PRAGAMA_SOLIDITY_VERSION_REGEX = /^\s*pragma\ssolidity\s+(.*?)\s*;/;
 const SUPPORTED_VERSION_DECLARATION_REGEX = /^\^?\d+(\.\d+){1,2}$/;
 const IMPORT_SOLIDITY_REGEX = /^.*import.*$/mg;
 
-const dirPath = path.join(__dirname,"Flattened Contracts");
-
 function unique(array) {
   return [...new Set(array)];
 }
@@ -81,18 +79,16 @@ async function dependenciesDfs(graph, visitedFiles, filePath) {
   }
 }
 
-async function getSortedFilePaths(entryPoints) {
+async function getSortedFilePaths(entryPoint) {
   const graph = tsort();
   const visitedFiles = [];
 
-  for (const entryPoint of entryPoints) {
     await dependenciesDfs(graph, visitedFiles, entryPoint);
-  }
 
   const topologicalSortedFiles = graph.sort();
   // If an enrty has no dependency it won't be included in the graph, so we
   // add them and then dedup the array
-  const withEntries = topologicalSortedFiles.concat(entryPoints);
+  const withEntries = topologicalSortedFiles.concat(entryPoint);
 
   const files = unique(withEntries);
 
@@ -192,9 +188,9 @@ async function printFileWithoutPragma(filePath,outputPath) {
 
 async function printContactenation(files,outputPath) {
   const version = await normalizeCompilerVersionDeclarations(files);
-
+  const outputDir = path.parse(outputPath).dir;
   if (version) {
-    if (!fs.existsSync(dirPath)) { fs.mkdirSync(dirPath); }
+    if (!fs.existsSync(outputDir)) { fs.mkdirSync(outputDir); }
     fs.writeFileSync(outputPath,"pragma solidity " + version + ";");
   }
 
@@ -204,14 +200,16 @@ async function printContactenation(files,outputPath) {
 }
 
 async function main(files) {
-  const name = files.map(files => path.parse(files).base)
-  const outputPath = path.join(dirPath,name[0]);
+  if(!files[0] || !files[1]) throw new Error("You must specify both file path and output directory");
+  const name = path.parse(files[0]).base;
+  const outputDirPath = path.resolve(files[1]);
+  const outputPath = path.join(outputDirPath,name);
   if (files.length == 0) {
     console.error("Usage: truffle-flattener <files>");
   }
 
   try {
-    const sortedFiles = await getSortedFilePaths(files);
+    const sortedFiles = await getSortedFilePaths(files[0]);
     await printContactenation(sortedFiles,outputPath);
   } catch (error) {
     console.log(error);
