@@ -13,6 +13,8 @@ const PRAGAMA_SOLIDITY_VERSION_REGEX = /^\s*pragma\ssolidity\s+(.*?)\s*;/;
 const SUPPORTED_VERSION_DECLARATION_REGEX = /^\^?\d+(\.\d+){1,2}$/;
 const IMPORT_SOLIDITY_REGEX = /^.*import.*$/mg;
 
+const dirPath = path.join(__dirname,"Flattened Contracts");
+
 function unique(array) {
   return [...new Set(array)];
 }
@@ -97,18 +99,6 @@ async function getSortedFilePaths(entryPoints) {
   return files;
 }
 
-async function printFileWithoutPragma(filePath,name) {
-  const dirPath = path.join(__dirname,"post");
-  const filePath2 = path.join(dirPath,name);
-
-  const resolved = await resolve(filePath);
-  const output = resolved.fileContents.replace(
-    PRAGAMA_SOLIDITY_VERSION_REGEX,
-    ""
-  ).replace(IMPORT_SOLIDITY_REGEX,"");
-  // TODO: OUTPUT HERE
-  fs.appendFileSync(filePath2,"\n\n"+output.trim())
-}
 
 async function getFileCompilerVersionDeclaration(filePath) {
   const resolved = await resolve(filePath);
@@ -190,37 +180,45 @@ async function normalizeCompilerVersionDeclarations(files) {
 
   return maxCaretVersion;
 }
+async function printFileWithoutPragma(filePath,outputPath) {
 
-async function printContactenation(files,name) {
+  const resolved = await resolve(filePath);
+  const output = resolved.fileContents.replace(
+    PRAGAMA_SOLIDITY_VERSION_REGEX,
+    ""
+  ).replace(IMPORT_SOLIDITY_REGEX,"");
+  fs.appendFileSync(outputPath,"\n\n"+output.trim())
+}
+
+async function printContactenation(files,outputPath) {
   const version = await normalizeCompilerVersionDeclarations(files);
-  const dirPath = path.join(__dirname,"post");
-  const filePath = path.join(dirPath,name);
 
   if (version) {
     if (!fs.existsSync(dirPath)) { fs.mkdirSync(dirPath); }
-    //TODO : CHANGE HERE
-    fs.writeFileSync(filePath,"pragma solidity " + version + ";");
+    fs.writeFileSync(outputPath,"pragma solidity " + version + ";");
   }
 
   for (const file of files) {
-    //TODO : LOOK IF INCLUDE OR NOT ON OUTPUT STREAM
-    // console.log("\n// File: " + file + "\n");
-    await printFileWithoutPragma(file,name);
+    await printFileWithoutPragma(file,outputPath);
   }
 }
 
 async function main(files) {
   const name = files.map(files => path.parse(files).base)
+  const outputPath = path.join(dirPath,name[0]);
   if (files.length == 0) {
     console.error("Usage: truffle-flattener <files>");
   }
 
   try {
     const sortedFiles = await getSortedFilePaths(files);
-    await printContactenation(sortedFiles,name[0]);
+    await printContactenation(sortedFiles,outputPath);
   } catch (error) {
     console.log(error);
   }
 }
 
 main(process.argv.slice(2));
+
+//TODO: Fix tool to only take one file
+//TODO: clean code
