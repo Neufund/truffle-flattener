@@ -88,7 +88,6 @@ async function getSortedFilePaths(entryPoints) {
   }
 
   const topologicalSortedFiles = graph.sort();
-
   // If an enrty has no dependency it won't be included in the graph, so we
   // add them and then dedup the array
   const withEntries = topologicalSortedFiles.concat(entryPoints);
@@ -98,14 +97,17 @@ async function getSortedFilePaths(entryPoints) {
   return files;
 }
 
-async function printFileWithoutPragma(filePath) {
+async function printFileWithoutPragma(filePath,name) {
+  const dirPath = path.join(__dirname,"post");
+  const filePath2 = path.join(dirPath,name);
+
   const resolved = await resolve(filePath);
   const output = resolved.fileContents.replace(
     PRAGAMA_SOLIDITY_VERSION_REGEX,
     ""
   ).replace(IMPORT_SOLIDITY_REGEX,"");
-
-  console.log(output.trim());
+  // TODO: OUTPUT HERE
+  fs.appendFileSync(filePath2,"\n\n"+output.trim())
 }
 
 async function getFileCompilerVersionDeclaration(filePath) {
@@ -189,27 +191,33 @@ async function normalizeCompilerVersionDeclarations(files) {
   return maxCaretVersion;
 }
 
-async function printContactenation(files) {
+async function printContactenation(files,name) {
   const version = await normalizeCompilerVersionDeclarations(files);
+  const dirPath = path.join(__dirname,"post");
+  const filePath = path.join(dirPath,name);
 
   if (version) {
-    console.log("pragma solidity " + version + ";");
+    if (!fs.existsSync(dirPath)) { fs.mkdirSync(dirPath); }
+    //TODO : CHANGE HERE
+    fs.writeFileSync(filePath,"pragma solidity " + version + ";");
   }
 
   for (const file of files) {
-    console.log("\n// File: " + file + "\n");
-    await printFileWithoutPragma(file);
+    //TODO : LOOK IF INCLUDE OR NOT ON OUTPUT STREAM
+    // console.log("\n// File: " + file + "\n");
+    await printFileWithoutPragma(file,name);
   }
 }
 
 async function main(files) {
+  const name = files.map(files => path.parse(files).base)
   if (files.length == 0) {
     console.error("Usage: truffle-flattener <files>");
   }
 
   try {
     const sortedFiles = await getSortedFilePaths(files);
-    await printContactenation(sortedFiles);
+    await printContactenation(sortedFiles,name[0]);
   } catch (error) {
     console.log(error);
   }
